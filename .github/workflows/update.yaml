@@ -9,10 +9,20 @@ jobs:
       pages: "write"
     runs-on: "ubuntu-latest"
     steps:
+    - env:
+        SECRETS: "${{ toJSON(secrets) }}"
+      name: "Secret tests"
+      uses: "actions/github-script@v7"
+      with:
+        script: |
+          const secrets = JSON.parse(process.env.SECRETS);
+          if (secrets.GPG_KEY === undefined || secrets.RADXA_APT_KEY_2024 === undefined) {
+              core.setFailed('Required secrets are unset!');
+          }
     - name: "Checkout rsdk"
       uses: "actions/checkout@v4"
       with:
-        ref: "b2da57a8c25bbab832da4ed14cc1324b6e1cfd56"
+        ref: "f0a1a560090ffda7c90bf91352026d5a9e66dec2"
         repository: "RadxaOS-SDK/rsdk"
     - name: "Checkout current repo"
       uses: "actions/checkout@v4"
