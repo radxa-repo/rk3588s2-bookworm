@@ -1,0 +1,107 @@
+concurrency:
+  cancel-in-progress: true
+  group: "${{ github.workflow }}-${{ github.ref }}"
+jobs:
+  build:
+    permissions:
+      contents: "write"
+      id-token: "write"
+      pages: "write"
+    runs-on: "ubuntu-latest"
+    steps:
+    - name: "Checkout rsdk"
+      uses: "actions/checkout@v6"
+      with:
+        ref: "04345aeab5954662bd361b5de151d24f22992dbe"
+        repository: "RadxaOS-SDK/rsdk"
+    - name: "Checkout current repo"
+      uses: "actions/checkout@v6"
+      with:
+        path: ".infra-repo"
+    - env:
+        GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      id: "build"
+      name: "Build apt archive"
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y aptly pandoc
+        
+        # Workaround https://github.com/aptly-dev/aptly/issues/1297
+        git clone -b 1297-hack https://github.com/RadxaOS-SDK/aptly.git /tmp/aptly
+        export PATH="$HOME/go/bin:$PATH"
+        pushd /tmp/aptly
+        make release
+        popd
+        APTLY_PATH=/tmp/aptly/xc-out/*/linux_amd64
+        export PATH="$APTLY_PATH:$PATH"
+        
+        cat << EOF | gpg --import
+        ${{ secrets.RADXA_APT_KEY_2024 }}
+        EOF
+        cat << EOF | gpg --import
+        ${{ secrets.GPG_KEY }}
+        EOF
+        cat << EOF | gpg --import
+        ${{ secrets.RADXA_APT_KEY_2026 }}
+        EOF
+        
+        suites=(
+            "rk3588s2-bookworm"
+        )
+        
+        pushd .infra-repo
+        
+        ../src/bin/rsdk infra-pkg-download --no-default-distro "${suites[@]}"
+        ../src/bin/rsdk infra-repo-sync --origin "${suites[0]}" --label "${suites[0]}" "${suites[@]}"
+        export RSDK_REPO_ORIGIN="${suites[0]}"
+        
+        pushd "$HOME/.aptly/public/$RSDK_REPO_ORIGIN/"
+            cp "$OLDPWD/pkgs.json" "$OLDPWD/install.sh" ./
+            pandoc --from gfm --to html --standalone "$OLDPWD/README.md" --output index.html
+            find . > files.list
+            echo "pages=$(realpath .)" | tee -a $GITHUB_OUTPUT
+        popd
+        
+        popd
+      shell: "bash"
+    - name: "Setup GitHub Pages"
+      uses: "actions/configure-pages@v5"
+    - name: "Upload artifact"
+      uses: "actions/upload-pages-artifact@v4"
+      with:
+        path: "${{ steps.build.outputs.pages }}"
+    - id: "deploy"
+      if: "github.event_name != 'pull_request'"
+      name: "Deploy to GitHub Pages"
+      uses: "actions/deploy-pages@v4"
+    - name: "Download Pages artifact"
+      uses: "actions/download-artifact@v7"
+      with:
+        name: "github-pages"
+    - if: "steps.deploy.outcome == 'success'"
+      name: "Release Pages artifact"
+      uses: "softprops/action-gh-release@v2"
+      with:
+        body: "Rolling Pages artifact"
+        draft: false
+        files: "artifact.tar"
+        prerelease: false
+        tag_name: "github-pages"
+        token: "${{ secrets.GITHUB_TOKEN }}"
+name: "Publish packages"
+"on":
+  merge_group: {}
+  pull_request:
+    paths:
+    - "pkgs.json"
+    - "pkgs.lock"
+    - ".github/workflows/build.yaml"
+  push:
+    branches:
+    - "main"
+    paths:
+    - "pkgs.json"
+    - "pkgs.lock"
+    - ".github/workflows/build.yaml"
+  workflow_dispatch: {}
+permissions: {}
