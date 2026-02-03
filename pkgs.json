@@ -4,7 +4,7 @@
   "aic8800": "3.0+git20240327.3561b08f-2",
   "android-tools-adbd": "5.1.1.r38-1.1",
   "bluetuith": "0.2.0-1",
-  "cix-prebuilt": "beta1",
+  "cix-prebuilt": "beta2-2501",
   "cix-profiles": "0.1.0",
   "cloud-initramfs-growroot": "0.18.debian14",
   "dthelper": "10.0.2-1",
