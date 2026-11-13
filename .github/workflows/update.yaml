@@ -7,28 +7,16 @@ jobs:
       contents: "write"
     runs-on: "ubuntu-latest"
     steps:
-    - env:
-        SECRETS: "${{ toJSON(secrets) }}"
-      name: "Secret tests"
-      uses: "actions/github-script@v8"
-      with:
-        script: |
-          const secrets = JSON.parse(process.env.SECRETS);
-          if (secrets.RADXA_APT_KEY_2024 === undefined ||
-              secrets.GPG_KEY === undefined ||
-              secrets.RADXA_APT_KEY_2026 === undefined) {
-              core.setFailed('Required secrets are unset!');
-          }
     - name: "Checkout rsdk"
-      uses: "actions/checkout@v6"
+      uses: "actions/checkout@v7"
       with:
-        ref: "04345aeab5954662bd361b5de151d24f22992dbe"
+        ref: "5b0b4c2741b7fbdffa47a948db96dd6265f70720"
         repository: "RadxaOS-SDK/rsdk"
     - name: "Checkout current repo"
-      uses: "actions/checkout@v6"
+      uses: "actions/checkout@v7"
       with:
         path: ".infra-repo"
-        token: "${{secrets.GIT_PUSH_TOKEN}}"
+        token: "${{secrets.CODE_WRITE_TOKEN}}"
     - env:
         GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
       id: "build"
@@ -61,6 +49,7 @@ jobs:
         git push
         popd
       shell: "bash"
+    timeout-minutes: 10
 name: "Update package version info"
 "on":
   pull_request:
